@@ -1,0 +1,44 @@
+name: Coverage authentication validation
+
+on:
+  push:
+    branches: [ci/coverage-auth-3016]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  authenticated-coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b4820bf963601730967d77dad758b5ecf1fea746
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - name: Generate real output-package coverage
+        env:
+          TEST_VCR_MODE: ReplayOnly
+          GOTOOLCHAIN: go1.27.3
+        run: go test ./internal/output -coverpkg=./... -coverprofile=coverage-output.out
+      - name: Preserve the generated coverage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: output-package-coverage
+          path: coverage-output.out
+          if-no-files-found: error
+      - name: Authenticate and upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5
+        with:
+          use_oidc: true
+          fail_ci_if_error: true
+          files: coverage-output.out
+          disable_search: true
+          flags: prepr-output-validation
+          override_commit: b4820bf963601730967d77dad758b5ecf1fea746
+          override_branch: fix/html-fix-available-filter
